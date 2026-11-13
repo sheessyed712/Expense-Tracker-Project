@@ -1,4 +1,3 @@
-import { sign } from "node:crypto";
 
 const signupForm=document.getElementById("signupForm");
 
