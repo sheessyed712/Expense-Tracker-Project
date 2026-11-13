@@ -1,8 +1,10 @@
+import { sign } from "node:crypto";
+
 const signupForm=document.getElementById("signupForm");
 
 const message=document.getElementById("message");
 
-signupForm.addEventListener("submit",(e)=>{
+signupForm.addEventListener("submit",async(e)=>{
     e.preventDefault();
 
     const username=document.getElementById("username").value.trim();
@@ -21,13 +23,31 @@ signupForm.addEventListener("submit",(e)=>{
         return ;
     }
 
-    showMessage("Registration successfull","green");
-
-    console.log({
+    if(password!==confirmPassword){
+        showMessage("password doesn;t match","red");
+        return;
+    }
+    const userData={
         username,
         email,
         password
-    });
+    };
+
+    try {
+        const response=await axios.post("http://localhost:5000/api/auth/signup",userData);
+
+        console.log(response.data);
+        showMessage(response.data.message,"green");
+        signupForm.reset();
+
+    } catch (error) {
+        console.log(error);
+
+        showMessage(
+            error.response?.data?.message||"something went wrong","red"
+        )
+    }
+    
 
 
 
