@@ -1,6 +1,7 @@
 
 import User from "../models/user.model.js";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
 export const signup = async (req, res) => {
     try {
@@ -105,3 +106,15 @@ export const login=async(req,res)=>{
 
 
 }
+
+// Inside your login controller, right after password verification succeeds:
+const token = jwt.sign(
+    { userId: user.id, name: user.name }, 
+    process.env.JWT_SECRET || "secretkey"
+);
+
+return res.status(200).json({
+    success: true,
+    message: "User logged in successfully",
+    token: token // <-- Send this to the frontend
+});

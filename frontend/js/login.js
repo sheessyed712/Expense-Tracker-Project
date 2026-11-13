@@ -26,6 +26,8 @@ loginForm.addEventListener("submit",async(e)=>{
         console.log("Login res",response.data.message);
 
         showMessage(response.data.message,"green");
+        localStorage.setItem("token", response.data.token); // Save the token in browser
+window.location.href = "./expense.html";
 
 
     } catch (error) {
