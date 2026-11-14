@@ -2,6 +2,19 @@ const expenseForm = document.getElementById("expenseForm");
 const message = document.getElementById("message");
 const listOfExpenses = document.getElementById("listOfExpenses");
 
+
+const token = localStorage.getItem("token");
+
+// 1. If no token is found, kick them back to login page immediately
+if (!token) {
+    window.location.href = "./login.html";
+}
+
+// 2. Automatically attach the token to every axios request (GET, POST, DELETE)
+axios.defaults.headers.common["Authorization"] = token;
+
+
+
 // 1. Fetch old expenses on screen refresh
 window.addEventListener("DOMContentLoaded", async () => {
     try {

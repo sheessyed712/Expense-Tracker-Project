@@ -54,67 +54,59 @@ export const signup = async (req, res) => {
         });
     }
 };
-
-export const login=async(req,res)=>{
-
+export const login = async (req, res) => {
     try {
-   const {email,password}=req.body;
-    if(!email||!password){
-        return res.status(400).json({
-            success:false,
-            message:"Email and password are required"
-        })
-    }
-
-    const existingUser=await User.findOne({
-        where:{
-            email:email
+        const { email, password } = req.body;
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                message: "Email and password are required"
+            });
         }
-    });
 
-    if(!existingUser){
-        return res.status(404).json({
-            status:false,
-            message:"User not Found"
-        })
-    };
-    const isPasswordValid=await bcrypt.compare(
-        password,
-        existingUser.password
-    );
-    if(!isPasswordValid){
-        return res.status(401).json({
-            success:false,
-            message:"Incorrect Password"
-        })
-    };
+        const existingUser = await User.findOne({
+            where: {
+                email: email
+            }
+        });
 
-    return res.status(200).json({
-        success:true,
-        message:"User login sucessfull"
-    });
-  
+        if (!existingUser) {
+            return res.status(404).json({
+                success: false,
+                message: "User not Found"
+            });
+        }
+
+        const isPasswordValid = await bcrypt.compare(
+            password,
+            existingUser.password
+        );
+
+        if (!isPasswordValid) {
+            return res.status(401).json({
+                success: false,
+                message: "Incorrect Password"
+            });
+        }
+
+        // Generate token using existingUser.id and existingUser.username
+        const token = jwt.sign(
+            { userId: existingUser.id, username: existingUser.username },
+            process.env.JWT_SECRET || "secretkey"
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: "User login successful",
+            token: token
+        });
+
     } catch (error) {
-        console.log("login error",error);
+        console.log("login error", error);
 
         return res.status(500).json({
-            success:false,
-            message:"internal server error"
+            success: false,
+            message: "Internal server error"
         });
     }
- 
-
-
-}
-
-// Inside your login controller, right after password verification succeeds:
-const token = jwt.sign(
-    { userId: user.id, name: user.name }, 
-    process.env.JWT_SECRET || "secretkey"
-);
-
-return res.status(200).json({
-    success: true,
-    message: "User logged in successfully",
-    token: token // <-- Send this to the frontend
-});
+};

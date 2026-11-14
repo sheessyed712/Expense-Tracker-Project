@@ -6,9 +6,17 @@ import "./models/expense.model.js"
 import cors from "cors";
 import dotenv from "dotenv";
 import expenseRoutes from "./routes/expense.routes.js"
+
+import User from "./models/user.model.js";
+import Expense from "./models/expense.model.js";
 dotenv.config();
 
 const app=express();
+
+
+User.hasMany(Expense);
+Expense.belongsTo(User);
+
 
 app.use(cors());
 app.use(express.json());

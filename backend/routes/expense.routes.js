@@ -1,9 +1,11 @@
 import express from "express";
-import { addExpense ,deleteExpense,getExpenses} from "../controllers/expense.controller.js";
-const router=express.Router();
+import { addExpense, deleteExpense, getExpenses } from "../controllers/expense.controller.js";
+import { authenticate } from "../middleware/auth.middleware.js";
 
-router.post("/addExpense",addExpense);
-router.get("/getExpenses",getExpenses);
-router.delete("/deleteExpense/:id",deleteExpense);
+const router = express.Router();
+
+router.post("/addExpense", authenticate, addExpense);
+router.get("/getExpenses", authenticate, getExpenses);
+router.delete("/deleteExpense/:id", authenticate, deleteExpense);
 
 export default router;
