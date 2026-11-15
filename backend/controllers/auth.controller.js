@@ -91,14 +91,15 @@ export const login = async (req, res) => {
 
         // Generate token using existingUser.id and existingUser.username
         const token = jwt.sign(
-            { userId: existingUser.id, username: existingUser.username },
+            { userId: existingUser.id, username: existingUser.username,isPremium:existingUser.isPremium },
             process.env.JWT_SECRET || "secretkey"
         );
 
         return res.status(200).json({
             success: true,
             message: "User login successful",
-            token: token
+            token: token,
+            isPremium:existingUser.isPremium
         });
 
     } catch (error) {

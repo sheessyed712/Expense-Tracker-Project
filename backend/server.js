@@ -11,6 +11,9 @@ import User from "./models/user.model.js";
 import Expense from "./models/expense.model.js";
 
 
+import premiumRoutes from "./routes/premium.routes.js";
+
+
 import Order from "./models/order.model.js";
 import purchaseRoutes from "./routes/purchase.routes.js";
 dotenv.config();
@@ -35,6 +38,11 @@ app.use("/api/expense",expenseRoutes);
 
 // Add route middleware:
 app.use("/api/purchase", purchaseRoutes);
+
+
+// Below app.use("/api/purchase", purchaseRoutes):
+app.use("/api/premium", premiumRoutes);
+
 
 const startServer=async()=>{
     try {

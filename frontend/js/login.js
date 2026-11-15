@@ -27,6 +27,8 @@ loginForm.addEventListener("submit",async(e)=>{
 
         showMessage(response.data.message,"green");
         localStorage.setItem("token", response.data.token); // Save the token in browser
+
+        localStorage.setItem("isPremium", response.data.isPremium);//storing ispremium 
 window.location.href = "./expense.html";
 
 

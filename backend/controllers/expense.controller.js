@@ -30,7 +30,8 @@ export const getExpenses = async (req, res) => {
         const expenses = await Expense.findAll({ where: { UserId: req.user.id } });
         return res.status(200).json({
             success: true,
-            expenses
+            expenses,
+            isPremium:req.user.isPremium
         });
     } catch (error) {
         return res.status(500).json({ success: false, message: "Unable to fetch expenses" });

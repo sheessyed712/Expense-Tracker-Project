@@ -14,11 +14,18 @@ if (!token) {
 axios.defaults.headers.common["Authorization"] = token;
 
 
-
-// 1. Fetch old expenses on screen refresh
+//showing the expenses of everyone to the premium users
 window.addEventListener("DOMContentLoaded", async () => {
+    if (localStorage.getItem("isPremium") === "true") {
+        showPremiumUserUI();
+    }
+
     try {
         const response = await axios.get("http://localhost:5000/api/expense/getExpenses");
+        if (response.data.isPremium) {
+            localStorage.setItem("isPremium", "true");
+            showPremiumUserUI();
+        }
         response.data.expenses.forEach(expense => {
             addNewExpenseToUI(expense);
         });
@@ -27,7 +34,6 @@ window.addEventListener("DOMContentLoaded", async () => {
         showMessage("Failed to load expenses", "red");
     }
 });
-
 // 2. Add new expense form submit handler
 expenseForm.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -126,6 +132,8 @@ document.getElementById("buyPremiumBtn").addEventListener("click", async () => {
             const statusRes = await axios.get(`http://localhost:5000/api/purchase/payment-status/${orderId}`);
             if (statusRes.data.orderStatus === "SUCCESSFUL") {
                 alert("Transaction successful! You are now a Premium User.");
+                localStorage.setItem("isPremium", "true");
+                showPremiumUserUI();
             } else {
                 alert("TRANSACTION FAILED");
             }
@@ -135,3 +143,38 @@ document.getElementById("buyPremiumBtn").addEventListener("click", async () => {
         alert("TRANSACTION FAILED");
     }
 });
+
+// Helper function to show "You are a premium user now" + "Show Leaderboard" button
+function showPremiumUserUI() {
+    const buyBtn = document.getElementById("buyPremiumBtn");
+    if (buyBtn) buyBtn.style.display = "none";
+
+    const premiumContainer = document.getElementById("premiumFeatureContainer");
+    premiumContainer.innerHTML = `
+        <span>You are a premium user now</span>
+        <button id="showLeaderboardBtn">Show Leaderboard</button>
+    `;
+
+    document.getElementById("showLeaderboardBtn").addEventListener("click", fetchAndShowLeaderboard);
+}
+
+// Fetch and render leaderboard sorted by highest total expense
+async function fetchAndShowLeaderboard() {
+    try {
+        const response = await axios.get("http://localhost:5000/api/premium/showLeaderboard");
+        const leaderboardSection = document.getElementById("leaderboardSection");
+
+        let listItems = "";
+        response.data.leaderboard.forEach(user => {
+            listItems += `<li>Name - ${user.username} Total Expense - ${user.totalExpense}</li>`;
+        });
+
+        leaderboardSection.innerHTML = `
+            <h2>Leader Board</h2>
+            <ul>${listItems}</ul>
+        `;
+    } catch (error) {
+        console.error("Failed to fetch leaderboard:", error);
+        showMessage("Failed to load leaderboard", "red");
+    }
+}
