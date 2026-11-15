@@ -94,3 +94,44 @@ function showMessage(text, color) {
     message.textContent = text;
     message.style.color = color;
 }
+
+
+
+const cashfree = Cashfree({
+    mode: "sandbox"
+});
+
+document.getElementById("buyPremiumBtn").addEventListener("click", async () => {
+    try {
+        // 1. Create order in backend & get paymentSessionId
+        const response = await axios.post("http://localhost:5000/api/purchase/premiummembership");
+        const { paymentSessionId, orderId } = response.data;
+
+        // 2. Open Cashfree checkout in modal
+        const checkoutOptions = {
+            paymentSessionId: paymentSessionId,
+            redirectTarget: "_modal"
+        };
+
+        const result = await cashfree.checkout(checkoutOptions);
+
+        // 3. Handle modal close/error or payment completion
+        if (result.error) {
+            console.log("Payment popup closed or error:", result.error);
+            await axios.get(`http://localhost:5000/api/purchase/payment-status/${orderId}`);
+            alert("TRANSACTION FAILED");
+        }
+
+        if (result.paymentDetails) {
+            const statusRes = await axios.get(`http://localhost:5000/api/purchase/payment-status/${orderId}`);
+            if (statusRes.data.orderStatus === "SUCCESSFUL") {
+                alert("Transaction successful! You are now a Premium User.");
+            } else {
+                alert("TRANSACTION FAILED");
+            }
+        }
+    } catch (error) {
+        console.error("Purchase error:", error);
+        alert("TRANSACTION FAILED");
+    }
+});

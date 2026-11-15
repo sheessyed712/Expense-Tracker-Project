@@ -9,6 +9,10 @@ import expenseRoutes from "./routes/expense.routes.js"
 
 import User from "./models/user.model.js";
 import Expense from "./models/expense.model.js";
+
+
+import Order from "./models/order.model.js";
+import purchaseRoutes from "./routes/purchase.routes.js";
 dotenv.config();
 
 const app=express();
@@ -18,12 +22,19 @@ User.hasMany(Expense);
 Expense.belongsTo(User);
 
 
+User.hasMany(Order);
+Order.belongsTo(User);
+
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({extended:true}));
 
 app.use("/api/auth",authRoutes);
 app.use("/api/expense",expenseRoutes);
+
+
+// Add route middleware:
+app.use("/api/purchase", purchaseRoutes);
 
 const startServer=async()=>{
     try {
