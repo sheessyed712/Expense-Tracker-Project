@@ -137,6 +137,7 @@ document.getElementById("buyPremiumBtn").addEventListener("click", async () => {
             } else {
                 alert("TRANSACTION FAILED");
             }
+            
         }
     } catch (error) {
         console.error("Purchase error:", error);
