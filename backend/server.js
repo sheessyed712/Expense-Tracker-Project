@@ -10,6 +10,7 @@ import expenseRoutes from "./routes/expense.routes.js"
 import User from "./models/user.model.js";
 import Expense from "./models/expense.model.js";
 
+import TotalExpense from "./models/totalExpense.model.js";
 
 import premiumRoutes from "./routes/premium.routes.js";
 
@@ -27,6 +28,11 @@ Expense.belongsTo(User);
 
 User.hasMany(Order);
 Order.belongsTo(User);
+
+
+User.hasOne(TotalExpense);
+TotalExpense.belongsTo(User);
+
 
 app.use(cors());
 app.use(express.json());
