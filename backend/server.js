@@ -49,7 +49,10 @@ app.use("/api/purchase", purchaseRoutes);
 // Below app.use("/api/purchase", purchaseRoutes):
 app.use("/api/premium", premiumRoutes);
 
+import aiRoutes from "./routes/ai.routes.js";
 
+// Below your other app.use(...) lines:
+app.use("/api/ai", aiRoutes);
 const startServer=async()=>{
     try {
         await sequelize.authenticate();

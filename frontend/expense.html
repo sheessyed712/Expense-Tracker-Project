@@ -18,7 +18,8 @@
             </div>
             <div class="form-control">
                 <label for="description">Description</label>
-                <input type="text" id="description" required>
+                <input type="text" id="description" placeholder="e.g. Lunch at Domino's" required>
+                <button type="button" id="aiSuggestBtn">✨ Auto-Detect Category</button>
             </div>
             <div class="form-control">
                 <label for="category">Category</label>
@@ -28,6 +29,11 @@
                     <option value="Petrol">Petrol</option>
                     <option value="Salary">Salary</option>
                     <option value="Electricity">Electricity</option>
+                    <option value="Shopping">Shopping</option>
+                    <option value="Travel">Travel</option>
+                    <option value="Entertainment">Entertainment</option>
+                    <option value="Health">Health</option>
+                    <option value="Other">Other</option>
                 </select>
             </div>
             <button type="submit">Add Expense</button>
@@ -38,6 +44,11 @@
         <ul id="listOfExpenses"></ul>
 
         <div id="leaderboardSection"></div>
+
+        <div style="margin-top: 20px;">
+            <button id="aiInsightsBtn">🧠 Get AI Spending Insights</button>
+            <div id="aiInsightsBox" style="margin-top: 10px; white-space: pre-line;"></div>
+        </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.0/axios.min.js"></script>

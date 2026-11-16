@@ -2,7 +2,6 @@ const expenseForm = document.getElementById("expenseForm");
 const message = document.getElementById("message");
 const listOfExpenses = document.getElementById("listOfExpenses");
 
-
 const token = localStorage.getItem("token");
 
 // 1. If no token is found, kick them back to login page immediately
@@ -13,8 +12,7 @@ if (!token) {
 // 2. Automatically attach the token to every axios request (GET, POST, DELETE)
 axios.defaults.headers.common["Authorization"] = token;
 
-
-//showing the expenses of everyone to the premium users
+// Load old expenses & check premium status on screen refresh
 window.addEventListener("DOMContentLoaded", async () => {
     if (localStorage.getItem("isPremium") === "true") {
         showPremiumUserUI();
@@ -34,7 +32,8 @@ window.addEventListener("DOMContentLoaded", async () => {
         showMessage("Failed to load expenses", "red");
     }
 });
-// 2. Add new expense form submit handler
+
+// Add new expense form submit handler
 expenseForm.addEventListener("submit", async (e) => {
     e.preventDefault();
 
@@ -48,7 +47,7 @@ expenseForm.addEventListener("submit", async (e) => {
     }
 
     const expenseData = {
-        expenseAmount:expenseamount,
+        expenseAmount: expenseamount,
         description,
         category
     };
@@ -60,7 +59,6 @@ expenseForm.addEventListener("submit", async (e) => {
         addNewExpenseToUI(response.data.newExpenseDetail);
         showMessage("Expense added successfully", "green");
         expenseForm.reset();
-
     } catch (error) {
         console.log(error);
         showMessage(
@@ -70,7 +68,7 @@ expenseForm.addEventListener("submit", async (e) => {
     }
 });
 
-// 3. Render expense item onto DOM
+// Render expense item onto DOM
 function addNewExpenseToUI(expense) {
     const expenseElemId = `expense-${expense.id}`;
 
@@ -84,7 +82,7 @@ function addNewExpenseToUI(expense) {
     listOfExpenses.appendChild(li);
 }
 
-// 4. Delete expense handler
+// Delete expense handler
 async function deleteExpense(expenseid) {
     try {
         await axios.delete(`http://localhost:5000/api/expense/deleteExpense/${expenseid}`);
@@ -101,19 +99,16 @@ function showMessage(text, color) {
     message.style.color = color;
 }
 
-
-
+// Cashfree Payment Integration
 const cashfree = Cashfree({
     mode: "sandbox"
 });
 
 document.getElementById("buyPremiumBtn").addEventListener("click", async () => {
     try {
-        // 1. Create order in backend & get paymentSessionId
         const response = await axios.post("http://localhost:5000/api/purchase/premiummembership");
         const { paymentSessionId, orderId } = response.data;
 
-        // 2. Open Cashfree checkout in modal
         const checkoutOptions = {
             paymentSessionId: paymentSessionId,
             redirectTarget: "_modal"
@@ -121,7 +116,6 @@ document.getElementById("buyPremiumBtn").addEventListener("click", async () => {
 
         const result = await cashfree.checkout(checkoutOptions);
 
-        // 3. Handle modal close/error or payment completion
         if (result.error) {
             console.log("Payment popup closed or error:", result.error);
             await axios.get(`http://localhost:5000/api/purchase/payment-status/${orderId}`);
@@ -137,7 +131,6 @@ document.getElementById("buyPremiumBtn").addEventListener("click", async () => {
             } else {
                 alert("TRANSACTION FAILED");
             }
-            
         }
     } catch (error) {
         console.error("Purchase error:", error);
@@ -145,7 +138,7 @@ document.getElementById("buyPremiumBtn").addEventListener("click", async () => {
     }
 });
 
-// Helper function to show "You are a premium user now" + "Show Leaderboard" button
+// Premium UI & Leaderboard
 function showPremiumUserUI() {
     const buyBtn = document.getElementById("buyPremiumBtn");
     if (buyBtn) buyBtn.style.display = "none";
@@ -159,7 +152,6 @@ function showPremiumUserUI() {
     document.getElementById("showLeaderboardBtn").addEventListener("click", fetchAndShowLeaderboard);
 }
 
-// Fetch and render leaderboard sorted by highest total expense
 async function fetchAndShowLeaderboard() {
     try {
         const response = await axios.get("http://localhost:5000/api/premium/showLeaderboard");
@@ -179,3 +171,52 @@ async function fetchAndShowLeaderboard() {
         showMessage("Failed to load leaderboard", "red");
     }
 }
+
+// ==========================================
+// AI FEATURES (Auto-Category & Spending Coach)
+// ==========================================
+const descriptionInput = document.getElementById("description");
+const categorySelect = document.getElementById("category");
+const aiSuggestBtn = document.getElementById("aiSuggestBtn");
+
+async function autoDetectCategory() {
+    const description = descriptionInput.value.trim();
+    if (!description) return;
+
+    aiSuggestBtn.textContent = "Thinking...";
+    try {
+        const response = await axios.post("http://localhost:5000/api/ai/categorize", { description });
+        const suggestedCategory = response.data.category;
+
+        // Add option dynamically if AI returns a category not already in the dropdown
+        const optionExists = Array.from(categorySelect.options).some(opt => opt.value === suggestedCategory);
+        if (!optionExists) {
+            const newOption = new Option(suggestedCategory, suggestedCategory);
+            categorySelect.add(newOption);
+        }
+
+        categorySelect.value = suggestedCategory;
+        showMessage(`AI suggested category: ${suggestedCategory}`, "green");
+    } catch (error) {
+        console.error("AI suggest error:", error);
+    } finally {
+        aiSuggestBtn.textContent = "✨ Auto-Detect Category";
+    }
+}
+
+// Trigger AI categorization on button click OR when user finishes typing description
+aiSuggestBtn.addEventListener("click", autoDetectCategory);
+descriptionInput.addEventListener("blur", autoDetectCategory);
+
+// AI Spending Insights button handler
+document.getElementById("aiInsightsBtn").addEventListener("click", async () => {
+    const box = document.getElementById("aiInsightsBox");
+    box.textContent = "Analyzing your expenses with Gemini AI...";
+    try {
+        const response = await axios.get("http://localhost:5000/api/ai/insights");
+        box.textContent = response.data.advice;
+    } catch (error) {
+        console.error("AI insights error:", error);
+        box.textContent = "Could not load AI insights right now.";
+    }
+});
