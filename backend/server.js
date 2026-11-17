@@ -33,6 +33,10 @@ Order.belongsTo(User);
 User.hasOne(TotalExpense);
 TotalExpense.belongsTo(User);
 
+import ForgotPasswordRequest from "./models/forgotPasswordRequest.model.js";
+User.hasMany(ForgotPasswordRequest);
+ForgotPasswordRequest.belongsTo(User);
+
 
 app.use(cors());
 app.use(express.json());
