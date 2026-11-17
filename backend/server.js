@@ -51,6 +51,12 @@ app.use("/api/premium", premiumRoutes);
 
 import aiRoutes from "./routes/ai.routes.js";
 
+
+import passwordRoutes from "./routes/password.routes.js";
+// Mount at /password so POST /password/forgotpassword matches the requirement:
+app.use("/password", passwordRoutes);
+
+
 // Below your other app.use(...) lines:
 app.use("/api/ai", aiRoutes);
 const startServer=async()=>{
