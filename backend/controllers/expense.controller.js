@@ -49,20 +49,41 @@ export const addExpense = async (req, res) => {
         return res.status(400).json({ success: false, message: error.message });
     }
 };
-
 export const getExpenses = async (req, res) => {
     try {
-        const expenses = await Expense.findAll({ where: { UserId: req.user.id } });
+        const page = Number(req.query.page) || 1;
+        const limit = Number(req.query.limit) || 10;
+        const offset = (page - 1) * limit;
+
+        // Fetch paginated expenses + total count for pagination buttons
+        const { count, rows: expenses } = await Expense.findAndCountAll({
+            where: { UserId: req.user.id },
+            limit: limit,
+            offset: offset,
+            order: [["createdAt", "DESC"]] // Latest expenses first
+        });
+
+        const lastPage = Math.ceil(count / limit) || 1;
+
         return res.status(200).json({
             success: true,
             expenses,
-            isPremium: req.user.isPremium
+            isPremium: req.user.isPremium,
+            pagination: {
+                currentPage: page,
+                hasNextPage: page * limit < count,
+                nextPage: page + 1,
+                hasPreviousPage: page > 1,
+                previousPage: page - 1,
+                lastPage: lastPage,
+                totalExpenses: count
+            }
         });
     } catch (error) {
+        console.error("Pagination fetch error:", error);
         return res.status(500).json({ success: false, message: "Unable to fetch expenses" });
     }
 };
-
 export const deleteExpense = async (req, res) => {
     // 1. Start a transaction
     const t = await sequelize.transaction();

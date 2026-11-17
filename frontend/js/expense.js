@@ -10,35 +10,90 @@ if (!token) {
 
 axios.defaults.headers.common["Authorization"] = token;
 
-// Store all fetched expenses in memory so Daily/Weekly/Monthly filters work smoothly
+// Store fetched expenses & pagination state
 let allUserExpenses = [];
 let currentReportFilter = "daily";
+let currentPage = 1;
+const ITEMS_PER_PAGE = 10;
 
-// Load old expenses & check premium status on screen refresh
+// Load paginated expenses & check premium status on screen refresh
 window.addEventListener("DOMContentLoaded", async () => {
     if (localStorage.getItem("isPremium") === "true") {
         showPremiumUserUI();
     }
+    await fetchExpenses(1);
+});
 
+// Fetch a specific page of expenses (10 at a time)
+async function fetchExpenses(page = 1) {
     try {
-        const response = await axios.get("http://localhost:5000/api/expense/getExpenses");
-        allUserExpenses = response.data.expenses || [];
+        currentPage = page;
+        const response = await axios.get(
+            `http://localhost:5000/api/expense/getExpenses?page=${page}&limit=${ITEMS_PER_PAGE}`
+        );
 
-        if (response.data.isPremium) {
+        const { expenses, isPremium, pagination } = response.data;
+        allUserExpenses = expenses || [];
+
+        if (isPremium) {
             localStorage.setItem("isPremium", "true");
             showPremiumUserUI();
         }
 
+        // Clear list and render only the 10 expenses for this page
+        listOfExpenses.innerHTML = "";
         allUserExpenses.forEach(expense => {
             addNewExpenseToUI(expense);
         });
 
+        renderPaginationButtons(pagination);
         renderReportTable(currentReportFilter);
     } catch (error) {
         console.log(error);
         showMessage("Failed to load expenses", "red");
     }
-});
+}
+
+// Render Previous, Current, Next, and Last Page buttons
+function renderPaginationButtons(pagination) {
+    const container = document.getElementById("paginationControls");
+    if (!container || !pagination) return;
+
+    const {
+        currentPage,
+        hasPreviousPage,
+        previousPage,
+        hasNextPage,
+        nextPage,
+        lastPage,
+        totalExpenses
+    } = pagination;
+
+    if (totalExpenses === 0) {
+        container.innerHTML = "";
+        return;
+    }
+
+    let buttonsHTML = `<span style="margin-right: 12px;">Total Expenses: <strong>${totalExpenses}</strong></span>`;
+
+    if (hasPreviousPage) {
+        buttonsHTML += `<button onclick="fetchExpenses(${previousPage})" style="margin-right: 6px;">Prev</button>`;
+    }
+
+    buttonsHTML += `<button style="font-weight: bold; background-color: #2c3e50; color: white; margin-right: 6px;">Page ${currentPage}</button>`;
+
+    if (hasNextPage) {
+        buttonsHTML += `<button onclick="fetchExpenses(${nextPage})" style="margin-right: 6px;">Next</button>`;
+    }
+
+    if (currentPage !== lastPage) {
+        buttonsHTML += `<button onclick="fetchExpenses(${lastPage})">Last Page (${lastPage})</button>`;
+    } else {
+        buttonsHTML += `<span style="margin-left: 6px; color: #555;">(Last Page: ${lastPage})</span>`;
+    }
+
+    container.innerHTML = buttonsHTML;
+}
 
 // Add new expense form submit handler
 expenseForm.addEventListener("submit", async (e) => {
@@ -60,12 +115,10 @@ expenseForm.addEventListener("submit", async (e) => {
     };
 
     try {
-        const response = await axios.post("http://localhost:5000/api/expense/addExpense", expenseData);
-        const created = response.data.newExpenseDetail;
+        await axios.post("http://localhost:5000/api/expense/addExpense", expenseData);
 
-        allUserExpenses.push(created);
-        addNewExpenseToUI(created);
-        renderReportTable(currentReportFilter);
+        // Reload page 1 so the newest expense appears at the top and pagination updates
+        await fetchExpenses(1);
 
         showMessage("Expense added successfully", "green");
         expenseForm.reset();
@@ -93,10 +146,10 @@ function addNewExpenseToUI(expense) {
 async function deleteExpense(expenseid) {
     try {
         await axios.delete(`http://localhost:5000/api/expense/deleteExpense/${expenseid}`);
-        document.getElementById(`expense-${expenseid}`).remove();
 
-        allUserExpenses = allUserExpenses.filter(exp => exp.id !== expenseid);
-        renderReportTable(currentReportFilter);
+        // Go back 1 page if the last remaining item on the current page was deleted
+        const targetPage = allUserExpenses.length === 1 && currentPage > 1 ? currentPage - 1 : currentPage;
+        await fetchExpenses(targetPage);
 
         showMessage("Expense deleted", "green");
     } catch (error) {
@@ -155,11 +208,9 @@ function showPremiumUserUI() {
     const buyBtn = document.getElementById("buyPremiumBtn");
     if (buyBtn) buyBtn.style.display = "none";
 
-    // Enable the Download Expenses button for premium users
     const downloadBtn = document.getElementById("downloadExpenseBtn");
     if (downloadBtn) downloadBtn.disabled = false;
 
-    // Show the Daily/Weekly/Monthly Report section
     const reportSection = document.getElementById("premiumReportSection");
     if (reportSection) reportSection.style.display = "block";
 
@@ -242,7 +293,7 @@ document.querySelectorAll(".filter-btn").forEach(btn => {
     });
 });
 
-// Frontend CSV Download Button (Enabled only for Premium Users)
+// Frontend CSV Download Button
 document.getElementById("downloadExpenseBtn").addEventListener("click", () => {
     if (allUserExpenses.length === 0) {
         alert("No expenses available to download.");
