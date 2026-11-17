@@ -4,13 +4,15 @@ const listOfExpenses = document.getElementById("listOfExpenses");
 
 const token = localStorage.getItem("token");
 
-// 1. If no token is found, kick them back to login page immediately
 if (!token) {
     window.location.href = "./login.html";
 }
 
-// 2. Automatically attach the token to every axios request (GET, POST, DELETE)
 axios.defaults.headers.common["Authorization"] = token;
+
+// Store all fetched expenses in memory so Daily/Weekly/Monthly filters work smoothly
+let allUserExpenses = [];
+let currentReportFilter = "daily";
 
 // Load old expenses & check premium status on screen refresh
 window.addEventListener("DOMContentLoaded", async () => {
@@ -20,13 +22,18 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     try {
         const response = await axios.get("http://localhost:5000/api/expense/getExpenses");
+        allUserExpenses = response.data.expenses || [];
+
         if (response.data.isPremium) {
             localStorage.setItem("isPremium", "true");
             showPremiumUserUI();
         }
-        response.data.expenses.forEach(expense => {
+
+        allUserExpenses.forEach(expense => {
             addNewExpenseToUI(expense);
         });
+
+        renderReportTable(currentReportFilter);
     } catch (error) {
         console.log(error);
         showMessage("Failed to load expenses", "red");
@@ -54,17 +61,17 @@ expenseForm.addEventListener("submit", async (e) => {
 
     try {
         const response = await axios.post("http://localhost:5000/api/expense/addExpense", expenseData);
+        const created = response.data.newExpenseDetail;
 
-        console.log(response.data);
-        addNewExpenseToUI(response.data.newExpenseDetail);
+        allUserExpenses.push(created);
+        addNewExpenseToUI(created);
+        renderReportTable(currentReportFilter);
+
         showMessage("Expense added successfully", "green");
         expenseForm.reset();
     } catch (error) {
         console.log(error);
-        showMessage(
-            error.response?.data?.message || "Something went wrong",
-            "red"
-        );
+        showMessage(error.response?.data?.message || "Something went wrong", "red");
     }
 });
 
@@ -87,6 +94,10 @@ async function deleteExpense(expenseid) {
     try {
         await axios.delete(`http://localhost:5000/api/expense/deleteExpense/${expenseid}`);
         document.getElementById(`expense-${expenseid}`).remove();
+
+        allUserExpenses = allUserExpenses.filter(exp => exp.id !== expenseid);
+        renderReportTable(currentReportFilter);
+
         showMessage("Expense deleted", "green");
     } catch (error) {
         console.log(error);
@@ -117,7 +128,6 @@ document.getElementById("buyPremiumBtn").addEventListener("click", async () => {
         const result = await cashfree.checkout(checkoutOptions);
 
         if (result.error) {
-            console.log("Payment popup closed or error:", result.error);
             await axios.get(`http://localhost:5000/api/purchase/payment-status/${orderId}`);
             alert("TRANSACTION FAILED");
         }
@@ -138,10 +148,20 @@ document.getElementById("buyPremiumBtn").addEventListener("click", async () => {
     }
 });
 
-// Premium UI & Leaderboard
+// ==========================================
+// PREMIUM UI, REPORT TABLE & DOWNLOAD BUTTON
+// ==========================================
 function showPremiumUserUI() {
     const buyBtn = document.getElementById("buyPremiumBtn");
     if (buyBtn) buyBtn.style.display = "none";
+
+    // Enable the Download Expenses button for premium users
+    const downloadBtn = document.getElementById("downloadExpenseBtn");
+    if (downloadBtn) downloadBtn.disabled = false;
+
+    // Show the Daily/Weekly/Monthly Report section
+    const reportSection = document.getElementById("premiumReportSection");
+    if (reportSection) reportSection.style.display = "block";
 
     const premiumContainer = document.getElementById("premiumFeatureContainer");
     premiumContainer.innerHTML = `
@@ -150,7 +170,101 @@ function showPremiumUserUI() {
     `;
 
     document.getElementById("showLeaderboardBtn").addEventListener("click", fetchAndShowLeaderboard);
+    renderReportTable(currentReportFilter);
 }
+
+// Filter expenses & incomes by Daily, Weekly, or Monthly
+function renderReportTable(filterType) {
+    const tbody = document.getElementById("reportTableBody");
+    if (!tbody) return;
+
+    const now = new Date();
+    const filtered = allUserExpenses.filter(item => {
+        const itemDate = new Date(item.createdAt || Date.now());
+
+        if (filterType === "daily") {
+            return itemDate.toDateString() === now.toDateString();
+        } else if (filterType === "weekly") {
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(now.getDate() - 7);
+            return itemDate >= sevenDaysAgo;
+        } else if (filterType === "monthly") {
+            return (
+                itemDate.getMonth() === now.getMonth() &&
+                itemDate.getFullYear() === now.getFullYear()
+            );
+        }
+        return true;
+    });
+
+    tbody.innerHTML = "";
+    let totalIncome = 0;
+    let totalExpense = 0;
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">No records found for this ${filterType} view.</td></tr>`;
+    } else {
+        filtered.forEach(item => {
+            const dateStr = new Date(item.createdAt || Date.now()).toLocaleDateString();
+            const amount = Number(item.expenseAmount);
+            const isIncome = item.category.toLowerCase() === "salary";
+
+            if (isIncome) {
+                totalIncome += amount;
+            } else {
+                totalExpense += amount;
+            }
+
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${dateStr}</td>
+                <td>${item.description}</td>
+                <td>${item.category}</td>
+                <td>${isIncome ? "₹" + amount : "-"}</td>
+                <td>${!isIncome ? "₹" + amount : "-"}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    document.getElementById("totalIncomeCell").textContent = `₹${totalIncome}`;
+    document.getElementById("totalExpenseCell").textContent = `₹${totalExpense}`;
+}
+
+// Daily / Weekly / Monthly button click listeners
+document.querySelectorAll(".filter-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+        document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+
+        currentReportFilter = btn.dataset.filter;
+        renderReportTable(currentReportFilter);
+    });
+});
+
+// Frontend CSV Download Button (Enabled only for Premium Users)
+document.getElementById("downloadExpenseBtn").addEventListener("click", () => {
+    if (allUserExpenses.length === 0) {
+        alert("No expenses available to download.");
+        return;
+    }
+
+    let csvContent = "Date,Description,Category,Type,Amount\n";
+    allUserExpenses.forEach(item => {
+        const dateStr = new Date(item.createdAt || Date.now()).toLocaleDateString();
+        const type = item.category.toLowerCase() === "salary" ? "Income" : "Expense";
+        csvContent += `"${dateStr}","${item.description}","${item.category}","${type}",${item.expenseAmount}\n`;
+    });
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `expenses_${currentReportFilter}_report.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+});
 
 async function fetchAndShowLeaderboard() {
     try {
@@ -173,7 +287,7 @@ async function fetchAndShowLeaderboard() {
 }
 
 // ==========================================
-// AI FEATURES (Auto-Category & Spending Coach)
+// AI FEATURES
 // ==========================================
 const descriptionInput = document.getElementById("description");
 const categorySelect = document.getElementById("category");
@@ -188,7 +302,6 @@ async function autoDetectCategory() {
         const response = await axios.post("http://localhost:5000/api/ai/categorize", { description });
         const suggestedCategory = response.data.category;
 
-        // Add option dynamically if AI returns a category not already in the dropdown
         const optionExists = Array.from(categorySelect.options).some(opt => opt.value === suggestedCategory);
         if (!optionExists) {
             const newOption = new Option(suggestedCategory, suggestedCategory);
@@ -204,11 +317,9 @@ async function autoDetectCategory() {
     }
 }
 
-// Trigger AI categorization on button click OR when user finishes typing description
 aiSuggestBtn.addEventListener("click", autoDetectCategory);
 descriptionInput.addEventListener("blur", autoDetectCategory);
 
-// AI Spending Insights button handler
 document.getElementById("aiInsightsBtn").addEventListener("click", async () => {
     const box = document.getElementById("aiInsightsBox");
     box.textContent = "Analyzing your expenses with Gemini AI...";
