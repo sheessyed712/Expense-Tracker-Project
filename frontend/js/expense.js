@@ -10,11 +10,26 @@ if (!token) {
 
 axios.defaults.headers.common["Authorization"] = token;
 
-// Store fetched expenses & pagination state
+// Store fetched expenses & dynamic pagination state from localStorage
 let allUserExpenses = [];
 let currentReportFilter = "daily";
 let currentPage = 1;
-const ITEMS_PER_PAGE = 10;
+let itemsPerPage = Number(localStorage.getItem("itemsPerPage")) || 10;
+
+const rowsPerPageSelect = document.getElementById("rowsPerPage");
+
+if (rowsPerPageSelect) {
+    // Sync dropdown UI with the saved localStorage value on page load
+    rowsPerPageSelect.value = String(itemsPerPage);
+
+    // Save preference to localStorage and reload from Page 1 when changed
+    rowsPerPageSelect.addEventListener("change", async (e) => {
+        itemsPerPage = Number(e.target.value);
+        localStorage.setItem("itemsPerPage", itemsPerPage);
+        await fetchExpenses(1);
+    });
+}
+
 
 // Load paginated expenses & check premium status on screen refresh
 window.addEventListener("DOMContentLoaded", async () => {
@@ -24,12 +39,12 @@ window.addEventListener("DOMContentLoaded", async () => {
     await fetchExpenses(1);
 });
 
-// Fetch a specific page of expenses (10 at a time)
+// Fetch a specific page of expenses using the user's chosen limit
 async function fetchExpenses(page = 1) {
     try {
         currentPage = page;
         const response = await axios.get(
-            `http://localhost:5000/api/expense/getExpenses?page=${page}&limit=${ITEMS_PER_PAGE}`
+            `http://localhost:5000/api/expense/getExpenses?page=${page}&limit=${itemsPerPage}`
         );
 
         const { expenses, isPremium, pagination } = response.data;
@@ -40,7 +55,11 @@ async function fetchExpenses(page = 1) {
             showPremiumUserUI();
         }
 
-        // Clear list and render only the 10 expenses for this page
+        // Edge case guard: if user was on a page that no longer exists after changing limit
+        if (pagination && pagination.totalExpenses > 0 && page > pagination.lastPage) {
+            return await fetchExpenses(pagination.lastPage);
+        }
+
         listOfExpenses.innerHTML = "";
         allUserExpenses.forEach(expense => {
             addNewExpenseToUI(expense);
@@ -53,7 +72,6 @@ async function fetchExpenses(page = 1) {
         showMessage("Failed to load expenses", "red");
     }
 }
-
 // Render Previous, Current, Next, and Last Page buttons
 function renderPaginationButtons(pagination) {
     const container = document.getElementById("paginationControls");

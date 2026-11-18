@@ -51,10 +51,9 @@ export const addExpense = async (req, res) => {
 };
 export const getExpenses = async (req, res) => {
     try {
-        const page = Number(req.query.page) || 1;
-        const limit = Number(req.query.limit) || 10;
+        const page = Math.max(1, Number(req.query.page) || 1);
+        const limit = Math.max(1, Number(req.query.limit) || 10);
         const offset = (page - 1) * limit;
-
         // Fetch paginated expenses + total count for pagination buttons
         const { count, rows: expenses } = await Expense.findAndCountAll({
             where: { UserId: req.user.id },
