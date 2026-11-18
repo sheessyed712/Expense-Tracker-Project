@@ -2,6 +2,8 @@ const expenseForm = document.getElementById("expenseForm");
 const message = document.getElementById("message");
 const listOfExpenses = document.getElementById("listOfExpenses");
 
+
+const note = document.getElementById("note").value.trim();
 const token = localStorage.getItem("token");
 
 if (!token) {
@@ -129,7 +131,8 @@ expenseForm.addEventListener("submit", async (e) => {
     const expenseData = {
         expenseAmount: expenseamount,
         description,
-        category
+        category,
+        note
     };
 
     try {
@@ -149,7 +152,9 @@ expenseForm.addEventListener("submit", async (e) => {
 // Render expense item onto DOM
 function addNewExpenseToUI(expense) {
     const expenseElemId = `expense-${expense.id}`;
+    const noteText = expense.note ? ` (Note: ${expense.note})` : "";
 
+    
     const li = document.createElement("li");
     li.id = expenseElemId;
     li.innerHTML = `

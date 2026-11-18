@@ -7,7 +7,7 @@ export const addExpense = async (req, res) => {
     const t = await sequelize.transaction();
 
     try {
-        const { expenseAmount, description, category } = req.body;
+        const { expenseAmount, description, category,note } = req.body;
         if (!expenseAmount || !description || !category) {
             await t.rollback();
             return res.status(400).json({ success: false, message: "All fields are required" });
@@ -19,6 +19,7 @@ export const addExpense = async (req, res) => {
                 expenseAmount,
                 description,
                 category,
+                note,
                 UserId: req.user.id
             },
             { transaction: t }
