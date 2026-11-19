@@ -61,6 +61,37 @@ import passwordRoutes from "./routes/password.routes.js";
 app.use("/password", passwordRoutes);
 
 
+
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import morgan from "morgan";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// 1. Create append write streams for access and error logs
+const accessLogStream = fs.createWriteStream(
+    path.join(__dirname, "access.log"),
+    { flags: "a" }
+);
+
+const errorLogStream = fs.createWriteStream(
+    path.join(__dirname, "error.log"),
+    { flags: "a" }
+);
+
+// 2. Log all HTTP requests to access.log
+app.use(morgan("combined", { stream: accessLogStream }));
+
+// 3. Log only error responses (status >= 400) to error.log
+app.use(
+    morgan("combined", {
+        skip: (req, res) => res.statusCode < 400,
+        stream: errorLogStream
+    })
+);
+
 // Below your other app.use(...) lines:
 app.use("/api/ai", aiRoutes);
 const startServer=async()=>{

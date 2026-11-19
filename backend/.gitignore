@@ -1,2 +1,4 @@
 node_modules/
 .env
+*.log
+backend/config/config.json
