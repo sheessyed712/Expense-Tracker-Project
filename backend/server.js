@@ -92,6 +92,13 @@ app.use(
     })
 );
 
+
+import DownloadedFile from "./models/downloadedFile.model.js";
+
+User.hasMany(DownloadedFile);
+DownloadedFile.belongsTo(User);
+
+
 // Below your other app.use(...) lines:
 app.use("/api/ai", aiRoutes);
 const startServer=async()=>{

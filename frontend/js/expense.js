@@ -2,8 +2,6 @@ const expenseForm = document.getElementById("expenseForm");
 const message = document.getElementById("message");
 const listOfExpenses = document.getElementById("listOfExpenses");
 
-
-const note = document.getElementById("note").value.trim();
 const token = localStorage.getItem("token");
 
 if (!token) {
@@ -31,7 +29,6 @@ if (rowsPerPageSelect) {
         await fetchExpenses(1);
     });
 }
-
 
 // Load paginated expenses & check premium status on screen refresh
 window.addEventListener("DOMContentLoaded", async () => {
@@ -74,6 +71,7 @@ async function fetchExpenses(page = 1) {
         showMessage("Failed to load expenses", "red");
     }
 }
+
 // Render Previous, Current, Next, and Last Page buttons
 function renderPaginationButtons(pagination) {
     const container = document.getElementById("paginationControls");
@@ -122,6 +120,7 @@ expenseForm.addEventListener("submit", async (e) => {
     const expenseamount = document.getElementById("expenseamount").value.trim();
     const description = document.getElementById("description").value.trim();
     const category = document.getElementById("category").value;
+    const note = document.getElementById("note").value.trim();
 
     if (!expenseamount || !description || !category) {
         showMessage("All fields are required", "red");
@@ -154,11 +153,10 @@ function addNewExpenseToUI(expense) {
     const expenseElemId = `expense-${expense.id}`;
     const noteText = expense.note ? ` (Note: ${expense.note})` : "";
 
-    
     const li = document.createElement("li");
     li.id = expenseElemId;
     li.innerHTML = `
-        ${expense.expenseAmount} - ${expense.category} - ${expense.description}
+        ${expense.expenseAmount} - ${expense.category} - ${expense.description}${noteText}
         <button onclick="deleteExpense(${expense.id})">Delete Expense</button>
     `;
 
@@ -225,7 +223,7 @@ document.getElementById("buyPremiumBtn").addEventListener("click", async () => {
 });
 
 // ==========================================
-// PREMIUM UI, REPORT TABLE & DOWNLOAD BUTTON
+// PREMIUM UI, REPORT TABLE & S3 DOWNLOAD
 // ==========================================
 function showPremiumUserUI() {
     const buyBtn = document.getElementById("buyPremiumBtn");
@@ -245,6 +243,11 @@ function showPremiumUserUI() {
 
     document.getElementById("showLeaderboardBtn").addEventListener("click", fetchAndShowLeaderboard);
     renderReportTable(currentReportFilter);
+
+    // Fetch and display previously downloaded S3 files on page load
+    axios.get("http://localhost:5000/api/expense/downloads-history")
+        .then(res => renderDownloadHistory(null, res.data.pastDownloads))
+        .catch(err => console.error("Failed to load download history:", err));
 }
 
 // Filter expenses & incomes by Daily, Weekly, or Monthly
@@ -316,29 +319,58 @@ document.querySelectorAll(".filter-btn").forEach(btn => {
     });
 });
 
-// Frontend CSV Download Button
-document.getElementById("downloadExpenseBtn").addEventListener("click", () => {
-    if (allUserExpenses.length === 0) {
-        alert("No expenses available to download.");
-        return;
+// AWS S3 Download Button (Premium Users Only)
+document.getElementById("downloadExpenseBtn").addEventListener("click", async () => {
+    try {
+        const response = await axios.get("http://localhost:5000/api/expense/download");
+        const { fileUrl, pastDownloads } = response.data;
+
+        // Trigger download from the S3 file URL
+        const link = document.createElement("a");
+        link.href = fileUrl;
+        link.setAttribute("download", "expenses.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Display the S3 URL and past downloaded files list on screen
+        renderDownloadHistory(fileUrl, pastDownloads);
+    } catch (error) {
+        console.error("S3 download error:", error);
+        if (error.response?.status === 401) {
+            alert("Unauthorized: Only premium users can download expenses.");
+        } else {
+            showMessage(error.response?.data?.message || "Failed to download file", "red");
+        }
+    }
+});
+
+// Render the latest S3 file link and list of previously downloaded files
+function renderDownloadHistory(latestUrl, pastDownloads = []) {
+    const container = document.getElementById("downloadResultSection");
+    if (!container) return;
+
+    let html = "";
+    if (latestUrl) {
+        html += `
+            <p style="color: green;">
+                <strong>S3 File URL:</strong>
+                <a href="${latestUrl}" target="_blank">${latestUrl}</a>
+            </p>
+        `;
     }
 
-    let csvContent = "Date,Description,Category,Type,Amount\n";
-    allUserExpenses.forEach(item => {
-        const dateStr = new Date(item.createdAt || Date.now()).toLocaleDateString();
-        const type = item.category.toLowerCase() === "salary" ? "Income" : "Expense";
-        csvContent += `"${dateStr}","${item.description}","${item.category}","${type}",${item.expenseAmount}\n`;
-    });
+    if (pastDownloads.length > 0) {
+        html += `<h4>Previously Downloaded Files</h4><ul>`;
+        pastDownloads.forEach(item => {
+            const dateStr = new Date(item.createdAt).toLocaleString();
+            html += `<li><a href="${item.fileUrl}" target="_blank">Download File</a> — Downloaded on: ${dateStr}</li>`;
+        });
+        html += `</ul>`;
+    }
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `expenses_${currentReportFilter}_report.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-});
+    container.innerHTML = html;
+}
 
 async function fetchAndShowLeaderboard() {
     try {

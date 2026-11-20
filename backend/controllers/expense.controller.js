@@ -2,6 +2,12 @@ import Expense from "../models/expense.model.js";
 import TotalExpense from "../models/totalExpense.model.js";
 import sequelize from "../config/db.js"; // <-- 1. Import sequelize for transactions
 
+
+
+import DownloadedFile from "../models/downloadedFile.model.js";
+import { uploadToS3 } from "../services/s3.service.js";
+
+
 export const addExpense = async (req, res) => {
     // 2. Start a transaction
     const t = await sequelize.transaction();
@@ -127,5 +133,82 @@ export const deleteExpense = async (req, res) => {
         // 6. Anything failed — undo both the total update and the delete
         await t.rollback();
         return res.status(500).json({ success: false, message: "Unable to delete expense" });
+    }
+};
+
+
+
+
+
+
+
+
+export const downloadExpenses = async (req, res) => {
+    try {
+        // 1. Check if user is Premium; return 401 Unauthorized if not
+        if (!req.user.isPremium) {
+            return res.status(401).json({
+                success: false,
+                message: "Unauthorized: Only premium users can download expenses"
+            });
+        }
+
+        // 2. Query all expenses for this user
+        const expenses = await Expense.findAll({
+            where: { UserId: req.user.id },
+            order: [["createdAt", "DESC"]]
+        });
+
+        // 3. Format expenses into CSV (or JSON string)
+        let csvContent = "Date,Amount,Category,Description,Note\n";
+        expenses.forEach(exp => {
+            const dateStr = new Date(exp.createdAt).toISOString().split("T")[0];
+            const note = exp.note ? exp.note.replace(/"/g, '""') : "";
+            const desc = exp.description.replace(/"/g, '""');
+            csvContent += `"${dateStr}",${exp.expenseAmount},"${exp.category}","${desc}","${note}"\n`;
+        });
+
+        // 4. Upload to AWS S3 with a unique filename per user + timestamp
+        const filename = `Expense-${req.user.id}/${new Date().toISOString()}.csv`;
+        const fileUrl = await uploadToS3(csvContent, filename);
+
+        // 5. Save the S3 file URL in DownloadedFiles table (Bonus Task)
+        await DownloadedFile.create({
+            fileUrl,
+            UserId: req.user.id
+        });
+
+        // 6. Fetch updated download history for this user
+        const pastDownloads = await DownloadedFile.findAll({
+            where: { UserId: req.user.id },
+            order: [["createdAt", "DESC"]]
+        });
+
+        return res.status(200).json({
+            success: true,
+            fileUrl,
+            pastDownloads
+        });
+    } catch (error) {
+        console.error("S3 Download error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to generate and upload expense file"
+        });
+    }
+};
+
+export const getDownloadedFiles = async (req, res) => {
+    try {
+        if (!req.user.isPremium) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+        const pastDownloads = await DownloadedFile.findAll({
+            where: { UserId: req.user.id },
+            order: [["createdAt", "DESC"]]
+        });
+        return res.status(200).json({ success: true, pastDownloads });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: "Failed to fetch download history" });
     }
 };

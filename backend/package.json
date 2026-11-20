@@ -13,6 +13,7 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1173.0",
     "@google/genai": "^3.3.0",
     "bcryptjs": "^3.0.3",
     "cashfree-pg": "^6.0.6",
